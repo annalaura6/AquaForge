@@ -35,15 +35,33 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
     bubbles.forEach((bubble, index) => {
       const bubbleMesh = bubbleRefs.current[index]
       if (bubbleMesh) {
-        // Bubble rises with wobble
-        bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50)
-        bubbleMesh.position.x += Math.sin(time * 2 + bubble.wobble) * 0.01
-        bubbleMesh.position.z += Math.cos(time * 1.5 + bubble.wobble) * 0.01
+        // Calculate forward movement based on current strength
+        const forwardDistance = (currentStrength / 100) * 2 // Convert to distance
+        const forwardProgress = bubbleMesh.position.x / forwardDistance // How far along the forward path
         
-        // Reset bubble when it reaches top
-        if (bubbleMesh.position.y > tankSize * 0.3) {
+        // Phase 1: Move forward horizontally (0-50% of forward distance)
+        if (bubbleMesh.position.x < forwardDistance * 0.5) {
+          bubbleMesh.position.x += bubble.speed * (bubbleDensity / 50) * 2 // Strong forward movement
+          bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50) * 0.1 // Minimal upward movement
+        }
+        // Phase 2: Curve upward (50-100% of forward distance)
+        else if (bubbleMesh.position.x < forwardDistance) {
+          bubbleMesh.position.x += bubble.speed * (bubbleDensity / 50) * 0.5 // Slower forward
+          bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50) * 3 // Strong upward movement
+        }
+        // Phase 3: Rise vertically (after forward distance)
+        else {
+          bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50) * 2 // Normal upward movement
+        }
+        
+        // Add gentle wobble
+        bubbleMesh.position.x += Math.sin(time * 2 + bubble.wobble) * 0.005
+        bubbleMesh.position.z += Math.cos(time * 1.5 + bubble.wobble) * 0.005
+        
+        // Reset bubble when it reaches top or goes too far
+        if (bubbleMesh.position.y > tankSize * 0.3 || bubbleMesh.position.x > tankSize * 0.4) {
           bubbleMesh.position.y = -tankSize * 0.2
-          bubbleMesh.position.x = (Math.random() - 0.5) * 0.3
+          bubbleMesh.position.x = 0.25 + (Math.random() - 0.5) * 0.3
           bubbleMesh.position.z = (Math.random() - 0.5) * 0.3
         }
       }
