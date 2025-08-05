@@ -2,7 +2,6 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Sky } from '@react-three/drei'
 import { useRef, useState, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Mesh } from 'three'
 import * as THREE from 'three'
 
 // Aquarium filter component with bubbles and current
@@ -41,7 +40,6 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
         
         // Smooth curve using sine function for natural arc
         const curveAngle = progress * Math.PI // 0 to π radians
-        const curveRadius = maxDistance / Math.PI // Radius of the curve
         
         // Calculate smooth movement along the curve
         const forwardSpeed = bubble.speed * (bubbleDensity / 30) * 4 // Faster movement
@@ -160,7 +158,7 @@ const PlacedObject = ({ position, color }: { position: [number, number, number],
 
 
 // Component for fish school
-const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, tankSize, currentStrength }: { schoolSize: number, swimmingSpeed: number, fishSize: number, randomizeFishSizes: boolean, tankSize: number, currentStrength: number }) => {
+const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, tankSize }: { schoolSize: number, swimmingSpeed: number, fishSize: number, randomizeFishSizes: boolean, tankSize: number }) => {
   const fishRefs = useRef<THREE.Group[]>([])
   
   // Calculate tank bounds based on tank size
@@ -979,7 +977,7 @@ function App() {
           ))}
           
                                  {/* Fish School */}
-            <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} fishSize={fishSize} randomizeFishSizes={randomizeFishSizes} tankSize={tankSize} currentStrength={currentStrength} />
+            <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} fishSize={fishSize} randomizeFishSizes={randomizeFishSizes} tankSize={tankSize} />
           
           <OrbitControls />
         </Canvas>
