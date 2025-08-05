@@ -125,7 +125,7 @@ const Fish = ({ position, direction, color }: {
 }
 
 // Component for fish school
-const FishSchool = ({ schoolSize, swimmingSpeed, tankSize }: { schoolSize: number, swimmingSpeed: number, tankSize: number }) => {
+const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, tankSize }: { schoolSize: number, swimmingSpeed: number, fishSize: number, randomizeFishSizes: boolean, tankSize: number }) => {
   const fishRefs = useRef<THREE.Group[]>([])
   
   // Calculate tank bounds based on tank size
@@ -149,6 +149,8 @@ const FishSchool = ({ schoolSize, swimmingSpeed, tankSize }: { schoolSize: numbe
         frequency: 0.3 + Math.random() * 0.4,
         direction: Math.random() * Math.PI * 2,
         speed: 0.02 + Math.random() * 0.03,
+        // Fish size parameters
+        size: randomizeFishSizes ? fishSize * (0.7 + Math.random() * 0.6) : fishSize, // Random size variation from 0.7x to 1.3x base size
         // New parameters for better exploration
         targetX: (Math.random() - 0.5) * tankBounds.x * 1.2,
         targetY: (Math.random() - 0.5) * tankBounds.y * 1.2 + 0.5,
@@ -158,7 +160,7 @@ const FishSchool = ({ schoolSize, swimmingSpeed, tankSize }: { schoolSize: numbe
       })
     }
     return fish
-  }, [schoolSize, tankSize])
+  }, [schoolSize, fishSize, randomizeFishSizes, tankSize])
   
   useFrame((state) => {
     const time = state.clock.elapsedTime
@@ -263,6 +265,7 @@ const FishSchool = ({ schoolSize, swimmingSpeed, tankSize }: { schoolSize: numbe
             }
           }}
           rotation={[0, fish.direction, 0]}
+          scale={[fish.size, fish.size, fish.size]}
         >
           {/* Fish Body (main ellipsoid) */}
           <mesh position={[0, 0, 0]}>
@@ -330,6 +333,8 @@ function App() {
   const [currentStrength, setCurrentStrength] = useState(30)
   const [schoolSize, setSchoolSize] = useState(15)
   const [swimmingSpeed, setSwimmingSpeed] = useState(5)
+  const [fishSize, setFishSize] = useState(1)
+  const [randomizeFishSizes, setRandomizeFishSizes] = useState(true)
   const [tankSize, setTankSize] = useState(12)
   const [fps, setFps] = useState(60)
 
@@ -361,6 +366,8 @@ function App() {
         currentStrength,
         schoolSize,
         swimmingSpeed,
+        fishSize,
+        randomizeFishSizes,
         tankSize
       }
     }
@@ -382,6 +389,8 @@ function App() {
         setCurrentStrength(data.settings.currentStrength || 30)
         setSchoolSize(data.settings.schoolSize || 15)
         setSwimmingSpeed(data.settings.swimmingSpeed || 5)
+        setFishSize(data.settings.fishSize || 1)
+        setRandomizeFishSizes(data.settings.randomizeFishSizes !== undefined ? data.settings.randomizeFishSizes : true)
         setTankSize(data.settings.tankSize || 12)
       }
       console.log('Aquarium loaded!')
@@ -398,6 +407,8 @@ function App() {
     setCurrentStrength(30)
     setSchoolSize(15)
     setSwimmingSpeed(5)
+    setFishSize(1)
+    setRandomizeFishSizes(true)
     setTankSize(12)
     console.log('Aquarium reset!')
   }
@@ -768,32 +779,80 @@ function App() {
               }}
             />
           </div>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{
-              color: '#b0bec5',
-              fontSize: '12px',
-              marginBottom: '6px',
-              display: 'block'
-            }}>
-              Swimming Speed
-            </label>
-            <input 
-              type="range" 
-              min="1" 
-              max="10" 
-              value={swimmingSpeed}
-              onChange={(e) => setSwimmingSpeed(Number(e.target.value))}
-              style={{
-                width: '100%',
-                height: '6px',
-                background: `linear-gradient(to right, #64b5f6 0%, #64b5f6 ${(swimmingSpeed - 1) / 9 * 100}%, rgba(45, 64, 89, 0.5) ${(swimmingSpeed - 1) / 9 * 100}%, rgba(45, 64, 89, 0.5) 100%)`,
-                borderRadius: '3px',
-                outline: 'none',
-                WebkitAppearance: 'none'
-              }}
-            />
-          </div>
-        </div>
+                     <div style={{ marginBottom: '15px' }}>
+             <label style={{
+               color: '#b0bec5',
+               fontSize: '12px',
+               marginBottom: '6px',
+               display: 'block'
+             }}>
+               Swimming Speed
+             </label>
+             <input 
+               type="range" 
+               min="1" 
+               max="10" 
+               value={swimmingSpeed}
+               onChange={(e) => setSwimmingSpeed(Number(e.target.value))}
+               style={{
+                 width: '100%',
+                 height: '6px',
+                 background: `linear-gradient(to right, #64b5f6 0%, #64b5f6 ${(swimmingSpeed - 1) / 9 * 100}%, rgba(45, 64, 89, 0.5) ${(swimmingSpeed - 1) / 9 * 100}%, rgba(45, 64, 89, 0.5) 100%)`,
+                 borderRadius: '3px',
+                 outline: 'none',
+                 WebkitAppearance: 'none'
+               }}
+             />
+           </div>
+           <div style={{ marginBottom: '15px' }}>
+             <label style={{
+               color: '#b0bec5',
+               fontSize: '12px',
+               marginBottom: '6px',
+               display: 'block'
+             }}>
+               Fish Size
+             </label>
+             <input 
+               type="range" 
+               min="0.5" 
+               max="3" 
+               step="0.1"
+               value={fishSize}
+               onChange={(e) => setFishSize(Number(e.target.value))}
+               style={{
+                 width: '100%',
+                 height: '6px',
+                 background: `linear-gradient(to right, #64b5f6 0%, #64b5f6 ${(fishSize - 0.5) / 2.5 * 100}%, rgba(45, 64, 89, 0.5) ${(fishSize - 0.5) / 2.5 * 100}%, rgba(45, 64, 89, 0.5) 100%)`,
+                 borderRadius: '3px',
+                 outline: 'none',
+                 WebkitAppearance: 'none'
+               }}
+             />
+           </div>
+           <div style={{ marginBottom: '15px' }}>
+             <label style={{
+               color: '#b0bec5',
+               fontSize: '12px',
+               marginBottom: '6px',
+               display: 'flex',
+               alignItems: 'center',
+               gap: '8px'
+             }}>
+               <input 
+                 type="checkbox" 
+                 checked={randomizeFishSizes}
+                 onChange={(e) => setRandomizeFishSizes(e.target.checked)}
+                 style={{
+                   accentColor: '#64b5f6',
+                   width: '16px',
+                   height: '16px'
+                 }}
+               />
+               Randomize Fish Sizes
+             </label>
+           </div>
+         </div>
 
         {/* Tank Section */}
         <div style={{ marginBottom: '25px' }}>
@@ -899,8 +958,8 @@ function App() {
             />
           ))}
           
-          {/* Fish School */}
-          <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} tankSize={tankSize} />
+                     {/* Fish School */}
+           <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} fishSize={fishSize} randomizeFishSizes={randomizeFishSizes} tankSize={tankSize} />
           
           <OrbitControls />
         </Canvas>
