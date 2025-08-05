@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Mesh } from 'three'
 
@@ -33,16 +33,14 @@ const AnimatedWater = () => {
 }
 
 function App() {
+  const [placementMode, setPlacementMode] = useState(false)
+
   return (
     <div style={{ 
       width: '100vw', 
       height: '100vh', 
       background: 'linear-gradient(to bottom, #87CEEB, #4682B4)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: 'white',
-      fontSize: '24px'
+      position: 'relative'
     }}>
       <Canvas style={{ width: '100%', height: '100%' }}>
         <ambientLight intensity={0.4} color="#4A90E2" />
@@ -82,6 +80,37 @@ function App() {
         
         <OrbitControls />
       </Canvas>
+
+      {/* Simple UI Overlay */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '20px',
+        background: 'rgba(0, 0, 0, 0.7)',
+        color: 'white',
+        padding: '15px',
+        borderRadius: '8px',
+        fontFamily: 'Arial, sans-serif'
+      }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#FFD700' }}>AquaForge</h3>
+        <p style={{ margin: '5px 0', fontSize: '14px' }}>
+          {placementMode ? 'Placement Mode: Click to place objects' : 'Click "Place Object" to start building'}
+        </p>
+        <button 
+          onClick={() => setPlacementMode(!placementMode)}
+          style={{
+            background: placementMode ? '#FF6B6B' : '#4CAF50',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          {placementMode ? 'Cancel Placement' : 'Place Object'}
+        </button>
+      </div>
     </div>
   )
 }
