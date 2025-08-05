@@ -48,10 +48,12 @@ function App() {
   const [selectedObject, setSelectedObject] = useState('🪨')
   const [ambientLight, setAmbientLight] = useState(60)
   const [sunIntensity, setSunIntensity] = useState(80)
+  const [waterColor, setWaterColor] = useState('#42a5f5')
   const [bubbleDensity, setBubbleDensity] = useState(40)
   const [currentStrength, setCurrentStrength] = useState(30)
   const [schoolSize, setSchoolSize] = useState(15)
   const [swimmingSpeed, setSwimmingSpeed] = useState(5)
+  const [fps, setFps] = useState(60)
 
   const handlePlaceObject = () => {
     // Create a new cube at a random position on the seafloor
@@ -69,6 +71,68 @@ function App() {
     setPlacedObjects(prev => [...prev, newObject])
     setObjectCounter(prev => prev + 1)
   }
+
+  const handleSave = () => {
+    const aquariumData = {
+      objects: placedObjects,
+      settings: {
+        ambientLight,
+        sunIntensity,
+        waterColor,
+        bubbleDensity,
+        currentStrength,
+        schoolSize,
+        swimmingSpeed
+      }
+    }
+    localStorage.setItem('aquaforge-save', JSON.stringify(aquariumData))
+    console.log('Aquarium saved!')
+  }
+
+  const handleLoad = () => {
+    const saved = localStorage.getItem('aquaforge-save')
+    if (saved) {
+      const data = JSON.parse(saved)
+      setPlacedObjects(data.objects || [])
+      setObjectCounter(data.objects?.length || 0)
+      if (data.settings) {
+        setAmbientLight(data.settings.ambientLight || 60)
+        setSunIntensity(data.settings.sunIntensity || 80)
+        setWaterColor(data.settings.waterColor || '#42a5f5')
+        setBubbleDensity(data.settings.bubbleDensity || 40)
+        setCurrentStrength(data.settings.currentStrength || 30)
+        setSchoolSize(data.settings.schoolSize || 15)
+        setSwimmingSpeed(data.settings.swimmingSpeed || 5)
+      }
+      console.log('Aquarium loaded!')
+    }
+  }
+
+  const handleReset = () => {
+    setPlacedObjects([])
+    setObjectCounter(0)
+    setAmbientLight(60)
+    setSunIntensity(80)
+    setWaterColor('#42a5f5')
+    setBubbleDensity(40)
+    setCurrentStrength(30)
+    setSchoolSize(15)
+    setSwimmingSpeed(5)
+    console.log('Aquarium reset!')
+  }
+
+  const handleScreenshot = () => {
+    // Simulate screenshot functionality
+    console.log('Screenshot taken!')
+  }
+
+  // Update FPS randomly for demo
+  useState(() => {
+    const interval = setInterval(() => {
+      setFps(Math.floor(Math.random() * 5) + 58)
+    }, 1000)
+    return () => clearInterval(interval)
+  })
 
   return (
     <div style={{ 
@@ -121,17 +185,35 @@ function App() {
           </div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px' }}>
-          {['💾 Save', '📁 Load', '📸 Screenshot', '🔄 Reset'].map((text, index) => (
-            <button key={index} style={{
-              padding: '8px 16px',
-              background: 'rgba(100, 181, 246, 0.1)',
-              border: '1px solid rgba(100, 181, 246, 0.3)',
-              borderRadius: '6px',
-              color: '#64b5f6',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease'
-            }}>
-              {text}
+          {[
+            { text: '💾 Save', onClick: handleSave },
+            { text: '📁 Load', onClick: handleLoad },
+            { text: '📸 Screenshot', onClick: handleScreenshot },
+            { text: '🔄 Reset', onClick: handleReset }
+          ].map((button, index) => (
+            <button 
+              key={index} 
+              onClick={button.onClick}
+              style={{
+                padding: '8px 16px',
+                background: 'rgba(100, 181, 246, 0.1)',
+                border: '1px solid rgba(100, 181, 246, 0.3)',
+                borderRadius: '6px',
+                color: '#64b5f6',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontFamily: 'inherit'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(100, 181, 246, 0.2)'
+                e.currentTarget.style.boxShadow = '0 0 10px rgba(100, 181, 246, 0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(100, 181, 246, 0.1)'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              {button.text}
             </button>
           ))}
         </div>
@@ -183,6 +265,20 @@ function App() {
               position: 'relative',
               overflow: 'hidden',
               boxShadow: selectedObject === emoji ? '0 0 15px rgba(255, 167, 38, 0.5)' : 'none'
+            }}
+            onMouseEnter={(e) => {
+              if (selectedObject !== emoji) {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.borderColor = '#64b5f6'
+                e.currentTarget.style.boxShadow = '0 5px 20px rgba(100, 181, 246, 0.4)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (selectedObject !== emoji) {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.borderColor = 'rgba(100, 181, 246, 0.3)'
+                e.currentTarget.style.boxShadow = 'none'
+              }
             }}
           >
             {emoji}
@@ -276,7 +372,8 @@ function App() {
             </label>
             <input 
               type="color" 
-              defaultValue="#42a5f5"
+              value={waterColor}
+              onChange={(e) => setWaterColor(e.target.value)}
               style={{
                 width: '40px',
                 height: '40px',
@@ -431,8 +528,8 @@ function App() {
         overflow: 'hidden'
       }}>
         <Canvas style={{ width: '100%', height: '100%' }}>
-          <ambientLight intensity={0.4} color="#4A90E2" />
-          <directionalLight position={[5, 10, 5]} intensity={0.8} color="#FFD700" />
+          <ambientLight intensity={ambientLight / 100} color="#4A90E2" />
+          <directionalLight position={[5, 10, 5]} intensity={sunIntensity / 100} color="#FFD700" />
           
           {/* Glass Aquarium Container */}
           <mesh position={[0, 0, 0]}>
@@ -495,10 +592,92 @@ function App() {
           🐠 Fish: <span style={{ color: '#64b5f6', fontWeight: '600' }}>8</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b0bec5', fontSize: '12px' }}>
-          ⚡ FPS: <span style={{ color: '#64b5f6', fontWeight: '600' }}>60</span>
+          ⚡ FPS: <span style={{ color: '#64b5f6', fontWeight: '600' }}>{fps}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b0bec5', fontSize: '12px' }}>
           📐 Camera: <span style={{ color: '#64b5f6', fontWeight: '600' }}>Orbit</span>
+        </div>
+        
+        {/* Watermark in footer */}
+        <div style={{
+          marginLeft: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '11px',
+            color: '#ffa726',
+            fontWeight: '600',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            Made by Anna
+          </div>
+          <div style={{
+            display: 'flex',
+            gap: '6px'
+          }}>
+            <a 
+              href="https://github.com/annalaura6" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                background: 'linear-gradient(45deg, #333, #666)',
+                borderRadius: '4px',
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: '12px',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              📱
+            </a>
+            <a 
+              href="https://zielinskart.carbonmade.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                background: 'linear-gradient(45deg, #64b5f6, #42a5f5)',
+                borderRadius: '4px',
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: '12px',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(100, 181, 246, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              🎨
+            </a>
+          </div>
         </div>
       </div>
 
@@ -523,6 +702,14 @@ function App() {
           boxShadow: '0 4px 20px rgba(255, 167, 38, 0.4)',
           transition: 'all 0.3s ease',
           zIndex: 1000
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.1)'
+          e.currentTarget.style.boxShadow = '0 6px 25px rgba(255, 167, 38, 0.6)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)'
+          e.currentTarget.style.boxShadow = '0 4px 20px rgba(255, 167, 38, 0.4)'
         }}
       >
         {selectedObject}
