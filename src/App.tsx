@@ -10,8 +10,8 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
   const filterRef = useRef<THREE.Group>(null)
   const bubbleRefs = useRef<THREE.Mesh[]>([])
   
-  // Generate bubbles based on density
-  const bubbleCount = Math.floor(bubbleDensity / 10) + 1
+  // Generate bubbles based on density - much more bubbles
+  const bubbleCount = Math.floor(bubbleDensity / 3) + 5
   const bubbles = useMemo(() => {
     const bubbleArray = []
     for (let i = 0; i < bubbleCount; i++) {
@@ -35,23 +35,29 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
     bubbles.forEach((bubble, index) => {
       const bubbleMesh = bubbleRefs.current[index]
       if (bubbleMesh) {
-        // Calculate forward movement based on current strength
-        const forwardDistance = (currentStrength / 100) * 2 // Convert to distance
-        const forwardProgress = bubbleMesh.position.x / forwardDistance // How far along the forward path
+        // Calculate smooth curve parameters based on current strength
+        const maxDistance = (currentStrength / 100) * tankSize * 0.9 // Full tank length
+        const progress = bubbleMesh.position.x / maxDistance // How far along the curve (0 to 1)
         
-        // Phase 1: Move forward horizontally (0-50% of forward distance)
-        if (bubbleMesh.position.x < forwardDistance * 0.5) {
-          bubbleMesh.position.x += bubble.speed * (bubbleDensity / 50) * 2 // Strong forward movement
-          bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50) * 0.1 // Minimal upward movement
-        }
-        // Phase 2: Curve upward (50-100% of forward distance)
-        else if (bubbleMesh.position.x < forwardDistance) {
-          bubbleMesh.position.x += bubble.speed * (bubbleDensity / 50) * 0.5 // Slower forward
-          bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50) * 3 // Strong upward movement
-        }
-        // Phase 3: Rise vertically (after forward distance)
-        else {
-          bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50) * 2 // Normal upward movement
+        // Smooth curve using sine function for natural arc
+        const curveAngle = progress * Math.PI // 0 to π radians
+        const curveRadius = maxDistance / Math.PI // Radius of the curve
+        
+        // Calculate smooth movement along the curve
+        const forwardSpeed = bubble.speed * (bubbleDensity / 30) * 4 // Faster movement
+        const upwardSpeed = bubble.speed * (bubbleDensity / 30) * 2
+        
+        // Smooth curve movement (no sharp turns)
+        if (progress < 1) {
+          // Move along the curve smoothly
+          bubbleMesh.position.x += forwardSpeed
+          bubbleMesh.position.y += Math.sin(curveAngle) * upwardSpeed * 2
+          
+          // Add gentle spread to the sides
+          bubbleMesh.position.z += Math.sin(time * 1.5 + bubble.wobble) * 0.01
+        } else {
+          // After the curve, rise vertically
+          bubbleMesh.position.y += upwardSpeed
         }
         
         // Add gentle wobble
@@ -59,7 +65,7 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
         bubbleMesh.position.z += Math.cos(time * 1.5 + bubble.wobble) * 0.005
         
         // Reset bubble when it reaches top or goes too far
-        if (bubbleMesh.position.y > tankSize * 0.3 || bubbleMesh.position.x > tankSize * 0.4) {
+        if (bubbleMesh.position.y > tankSize * 0.4 || bubbleMesh.position.x > tankSize * 0.95) {
           bubbleMesh.position.y = -tankSize * 0.2
           bubbleMesh.position.x = 0.25 + (Math.random() - 0.5) * 0.3
           bubbleMesh.position.z = (Math.random() - 0.5) * 0.3
@@ -243,14 +249,10 @@ const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, t
         fish.direction += fishGroup.position.z > 0 ? avoidForce * 0.02 : -avoidForce * 0.02
       }
       
-             // Smooth, consistent forward movement with current effect
+             // Smooth, consistent forward movement (no current effect)
        const baseSpeed = fish.speed * swimmingSpeed * 0.4
        const forwardX = Math.cos(fish.direction) * baseSpeed
        const forwardZ = Math.sin(fish.direction) * baseSpeed
-       
-       // Add current effect from filter (pushes fish to the right)
-       const currentEffect = currentStrength / 1000 // Convert to small force
-       const currentX = currentEffect * 0.5
       
       // Natural up-down swimming motion (gentle sine wave)
       const verticalWave = Math.sin(adjustedTime * 1.5) * 0.008
@@ -260,8 +262,8 @@ const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, t
       const sideX = Math.cos(fish.direction + Math.PI/2) * sideWave
       const sideZ = Math.sin(fish.direction + Math.PI/2) * sideWave
       
-             // Apply smooth movement directly to fish group with current effect
-       fishGroup.position.x += forwardX + sideX + currentX
+             // Apply smooth movement directly to fish group (no current effect)
+       fishGroup.position.x += forwardX + sideX
        fishGroup.position.y += verticalWave
        fishGroup.position.z += forwardZ + sideZ
       
