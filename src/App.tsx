@@ -326,8 +326,7 @@ function App() {
   const [placedObjects, setPlacedObjects] = useState<Array<{ id: number, position: [number, number, number], color: string }>>([])
   const [objectCounter, setObjectCounter] = useState(0)
   const [selectedObject, setSelectedObject] = useState('🪨')
-  const [ambientLight, setAmbientLight] = useState(60)
-  const [sunIntensity, setSunIntensity] = useState(80)
+  const [timeOfDay, setTimeOfDay] = useState(50) // 0 = night, 50 = noon, 100 = sunset
   const [waterColor, setWaterColor] = useState('#42a5f5')
   const [bubbleDensity, setBubbleDensity] = useState(40)
   const [currentStrength, setCurrentStrength] = useState(30)
@@ -359,8 +358,7 @@ function App() {
     const aquariumData = {
       objects: placedObjects,
       settings: {
-        ambientLight,
-        sunIntensity,
+        timeOfDay,
         waterColor,
         bubbleDensity,
         currentStrength,
@@ -382,8 +380,7 @@ function App() {
       setPlacedObjects(data.objects || [])
       setObjectCounter(data.objects?.length || 0)
       if (data.settings) {
-        setAmbientLight(data.settings.ambientLight || 60)
-        setSunIntensity(data.settings.sunIntensity || 80)
+        setTimeOfDay(data.settings.timeOfDay || 50)
         setWaterColor(data.settings.waterColor || '#42a5f5')
         setBubbleDensity(data.settings.bubbleDensity || 40)
         setCurrentStrength(data.settings.currentStrength || 30)
@@ -400,8 +397,7 @@ function App() {
   const handleReset = () => {
     setPlacedObjects([])
     setObjectCounter(0)
-    setAmbientLight(60)
-    setSunIntensity(80)
+    setTimeOfDay(50)
     setWaterColor('#42a5f5')
     setBubbleDensity(40)
     setCurrentStrength(30)
@@ -591,68 +587,54 @@ function App() {
         padding: '20px',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
       }}>
-        {/* Lighting Section */}
-        <div style={{ marginBottom: '25px' }}>
-          <div style={{
-            color: '#ffa726',
-            fontSize: '14px',
-            fontWeight: '600',
-            marginBottom: '12px',
-            textTransform: 'uppercase',
-            letterSpacing: '1px'
-          }}>
-            💡 Lighting
-          </div>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{
-              color: '#b0bec5',
-              fontSize: '12px',
-              marginBottom: '6px',
-              display: 'block'
-            }}>
-              Ambient Light
-            </label>
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={ambientLight}
-              onChange={(e) => setAmbientLight(Number(e.target.value))}
-              style={{
-                width: '100%',
-                height: '6px',
-                background: `linear-gradient(to right, #64b5f6 0%, #64b5f6 ${ambientLight}%, rgba(45, 64, 89, 0.5) ${ambientLight}%, rgba(45, 64, 89, 0.5) 100%)`,
-                borderRadius: '3px',
-                outline: 'none',
-                WebkitAppearance: 'none'
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{
-              color: '#b0bec5',
-              fontSize: '12px',
-              marginBottom: '6px',
-              display: 'block'
-            }}>
-              Sun Intensity
-            </label>
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={sunIntensity}
-              onChange={(e) => setSunIntensity(Number(e.target.value))}
-              style={{
-                width: '100%',
-                height: '6px',
-                background: `linear-gradient(to right, #64b5f6 0%, #64b5f6 ${sunIntensity}%, rgba(45, 64, 89, 0.5) ${sunIntensity}%, rgba(45, 64, 89, 0.5) 100%)`,
-                borderRadius: '3px',
-                outline: 'none',
-                WebkitAppearance: 'none'
-              }}
-            />
-          </div>
+                 {/* Time of Day Section */}
+         <div style={{ marginBottom: '25px' }}>
+           <div style={{
+             color: '#ffa726',
+             fontSize: '14px',
+             fontWeight: '600',
+             marginBottom: '12px',
+             textTransform: 'uppercase',
+             letterSpacing: '1px'
+           }}>
+             ☀️ Time of Day
+           </div>
+           <div style={{ marginBottom: '15px' }}>
+             <div style={{
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'space-between',
+               marginBottom: '8px'
+             }}>
+               <span style={{ fontSize: '18px' }}>🌙</span>
+               <label style={{
+                 color: '#b0bec5',
+                 fontSize: '12px',
+                 textAlign: 'center'
+               }}>
+                 {timeOfDay <= 20 ? 'Night' : 
+                  timeOfDay <= 40 ? 'Dawn' : 
+                  timeOfDay <= 60 ? 'Day' : 
+                  timeOfDay <= 80 ? 'Afternoon' : 'Sunset'}
+               </label>
+               <span style={{ fontSize: '18px' }}>☀️</span>
+             </div>
+             <input 
+               type="range" 
+               min="0" 
+               max="100" 
+               value={timeOfDay}
+               onChange={(e) => setTimeOfDay(Number(e.target.value))}
+               style={{
+                 width: '100%',
+                 height: '6px',
+                 background: `linear-gradient(to right, #1a1a2e 0%, #16213e 20%, #0f4c75 40%, #ffa726 50%, #ff7043 80%, #8b1538 100%)`,
+                 borderRadius: '3px',
+                 outline: 'none',
+                 WebkitAppearance: 'none'
+               }}
+             />
+           </div>
           <div style={{ marginBottom: '15px' }}>
             <label style={{
               color: '#b0bec5',
@@ -907,20 +889,46 @@ function App() {
         overflow: 'hidden'
       }}>
         <Canvas style={{ width: '100%', height: '100%' }}>
-          {/* Skybox for better lighting and reflections */}
+          {/* Dynamic Skybox based on time of day */}
           <Sky 
             distance={450000}
-            sunPosition={[0, 1, 0]}
-            inclination={0.5}
-            azimuth={0.25}
-            rayleigh={1}
-            turbidity={10}
+            sunPosition={[
+              Math.cos((timeOfDay / 100) * Math.PI * 2) * 5,
+              Math.sin((timeOfDay / 100) * Math.PI) * 5,
+              Math.sin((timeOfDay / 100) * Math.PI * 2) * 2
+            ]}
+            inclination={Math.max(0.1, Math.sin((timeOfDay / 100) * Math.PI))}
+            azimuth={(timeOfDay / 100) * 0.5}
+            rayleigh={timeOfDay <= 20 || timeOfDay >= 80 ? 0.5 : 1}
+            turbidity={timeOfDay <= 20 || timeOfDay >= 80 ? 15 : 10}
             mieCoefficient={0.005}
             mieDirectionalG={0.8}
           />
           
-          <ambientLight intensity={ambientLight / 100} color="#4A90E2" />
-          <directionalLight position={[5, 10, 5]} intensity={sunIntensity / 100} color="#FFD700" />
+          {/* Dynamic lighting based on time of day */}
+          <ambientLight 
+            intensity={Math.max(0.1, Math.sin((timeOfDay / 100) * Math.PI) * 0.6)} 
+            color={
+              timeOfDay <= 20 ? "#1a1a3e" :
+              timeOfDay <= 40 ? "#4a6fa5" :
+              timeOfDay <= 60 ? "#87ceeb" :
+              timeOfDay <= 80 ? "#ffa726" : "#ff6b35"
+            } 
+          />
+          <directionalLight 
+            position={[
+              Math.cos((timeOfDay / 100) * Math.PI * 2) * 5,
+              Math.max(2, Math.sin((timeOfDay / 100) * Math.PI) * 10),
+              Math.sin((timeOfDay / 100) * Math.PI * 2) * 5
+            ]} 
+            intensity={Math.max(0.1, Math.sin((timeOfDay / 100) * Math.PI) * 1.2)} 
+            color={
+              timeOfDay <= 20 ? "#6a5acd" :
+              timeOfDay <= 40 ? "#87ceeb" :
+              timeOfDay <= 60 ? "#ffffff" :
+              timeOfDay <= 80 ? "#ffa726" : "#ff4500"
+            }
+          />
           
           {/* Glass Aquarium Container */}
           <mesh position={[0, 0, 0]}>
