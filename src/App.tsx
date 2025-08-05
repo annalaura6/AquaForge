@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, Sky } from '@react-three/drei'
 import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Mesh } from 'three'
@@ -528,6 +528,18 @@ function App() {
         overflow: 'hidden'
       }}>
         <Canvas style={{ width: '100%', height: '100%' }}>
+          {/* Skybox for better lighting and reflections */}
+          <Sky 
+            distance={450000}
+            sunPosition={[0, 1, 0]}
+            inclination={0.5}
+            azimuth={0.25}
+            rayleigh={1}
+            turbidity={10}
+            mieCoefficient={0.005}
+            mieDirectionalG={0.8}
+          />
+          
           <ambientLight intensity={ambientLight / 100} color="#4A90E2" />
           <directionalLight position={[5, 10, 5]} intensity={sunIntensity / 100} color="#FFD700" />
           
@@ -542,6 +554,7 @@ function App() {
               roughness={0.1}
               ior={1.5}
               thickness={0.5}
+              envMapIntensity={1.0}
             />
           </mesh>
           
