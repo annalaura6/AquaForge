@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Mesh } from 'three'
+import { Group } from 'three'
 import { PlaceableObjectProps } from './PlaceableObject'
 
 interface CoralProps extends PlaceableObjectProps {
@@ -18,7 +18,7 @@ const Coral = ({
   onSelect,
   onDeselect
 }: CoralProps) => {
-  const meshRef = useRef<Mesh>(null)
+  const meshRef = useRef<Group>(null)
 
   // Coral colors based on type
   const coralColors = {
