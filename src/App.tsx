@@ -43,86 +43,7 @@ const PlacedObject = ({ position, color }: { position: [number, number, number],
   )
 }
 
-// Component for individual fish made from primitives
-const Fish = ({ position, direction, color }: { 
-  position: [number, number, number], 
-  direction: number,
-  color: string 
-}) => {
-  const groupRef = useRef<THREE.Group>(null)
-  
-  useFrame((state) => {
-    if (groupRef.current) {
-      // Gentle swimming tail animation
-      const time = state.clock.elapsedTime
-      const tailWag = Math.sin(time * 8) * 0.15
-      
-      // Find tail fin and animate it
-      const tailFin = groupRef.current.children[2] // tail fin is the 3rd child
-      if (tailFin) {
-        tailFin.rotation.y = tailWag
-      }
-      
-      // Slight body movement
-      groupRef.current.rotation.z = Math.sin(time * 3) * 0.02
-    }
-  })
-  
-  return (
-    <group ref={groupRef} position={position} rotation={[0, direction, 0]}>
-      {/* Fish Body (main ellipsoid) */}
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[0.08, 8, 6]} />
-        <meshStandardMaterial color={color} />
-        <meshStandardMaterial attach="material" args={[{ color: color, metalness: 0.1, roughness: 0.8 }]} />
-      </mesh>
-      
-      {/* Fish Head (smaller ellipsoid) */}
-      <mesh position={[0.06, 0, 0]} scale={[0.7, 0.8, 0.8]}>
-        <sphereGeometry args={[0.05, 6, 6]} />
-        <meshStandardMaterial color={color} metalness={0.2} roughness={0.6} />
-      </mesh>
-      
-      {/* Tail Fin */}
-      <mesh position={[-0.09, 0, 0]} rotation={[0, 0, 0]}>
-        <coneGeometry args={[0.04, 0.08, 3]} />
-        <meshStandardMaterial color={color} transparent opacity={0.8} />
-      </mesh>
-      
-      {/* Top Dorsal Fin */}
-      <mesh position={[-0.02, 0.06, 0]} rotation={[Math.PI/2, 0, 0]} scale={[0.8, 0.6, 0.4]}>
-        <coneGeometry args={[0.025, 0.05, 3]} />
-        <meshStandardMaterial color={color} transparent opacity={0.7} />
-      </mesh>
-      
-      {/* Side Fins (Pectoral) */}
-      <mesh position={[0.02, -0.02, 0.05]} rotation={[0, Math.PI/4, Math.PI/3]} scale={[0.6, 0.4, 0.3]}>
-        <coneGeometry args={[0.02, 0.04, 3]} />
-        <meshStandardMaterial color={color} transparent opacity={0.6} />
-      </mesh>
-      <mesh position={[0.02, -0.02, -0.05]} rotation={[0, -Math.PI/4, -Math.PI/3]} scale={[0.6, 0.4, 0.3]}>
-        <coneGeometry args={[0.02, 0.04, 3]} />
-        <meshStandardMaterial color={color} transparent opacity={0.6} />
-      </mesh>
-      
-      {/* Bottom Fin (Anal) */}
-      <mesh position={[-0.01, -0.05, 0]} rotation={[-Math.PI/2, 0, 0]} scale={[0.6, 0.4, 0.3]}>
-        <coneGeometry args={[0.015, 0.03, 3]} />
-        <meshStandardMaterial color={color} transparent opacity={0.6} />
-      </mesh>
-      
-      {/* Eyes */}
-      <mesh position={[0.08, 0.02, 0.025]}>
-        <sphereGeometry args={[0.008, 4, 4]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-      <mesh position={[0.08, 0.02, -0.025]}>
-        <sphereGeometry args={[0.008, 4, 4]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-    </group>
-  )
-}
+
 
 // Component for fish school
 const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, tankSize }: { schoolSize: number, swimmingSpeed: number, fishSize: number, randomizeFishSizes: boolean, tankSize: number }) => {
@@ -327,7 +248,6 @@ function App() {
   const [objectCounter, setObjectCounter] = useState(0)
   const [selectedObject, setSelectedObject] = useState('🪨')
   const [timeOfDay, setTimeOfDay] = useState(50) // 0 = night, 50 = noon, 100 = sunset
-  const [waterColor, setWaterColor] = useState('#42a5f5')
   const [bubbleDensity, setBubbleDensity] = useState(40)
   const [currentStrength, setCurrentStrength] = useState(30)
   const [schoolSize, setSchoolSize] = useState(15)
@@ -359,7 +279,6 @@ function App() {
       objects: placedObjects,
       settings: {
         timeOfDay,
-        waterColor,
         bubbleDensity,
         currentStrength,
         schoolSize,
@@ -381,7 +300,6 @@ function App() {
       setObjectCounter(data.objects?.length || 0)
       if (data.settings) {
         setTimeOfDay(data.settings.timeOfDay || 50)
-        setWaterColor(data.settings.waterColor || '#42a5f5')
         setBubbleDensity(data.settings.bubbleDensity || 40)
         setCurrentStrength(data.settings.currentStrength || 30)
         setSchoolSize(data.settings.schoolSize || 15)
@@ -398,7 +316,6 @@ function App() {
     setPlacedObjects([])
     setObjectCounter(0)
     setTimeOfDay(50)
-    setWaterColor('#42a5f5')
     setBubbleDensity(40)
     setCurrentStrength(30)
     setSchoolSize(15)
@@ -635,29 +552,7 @@ function App() {
                }}
              />
            </div>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{
-              color: '#b0bec5',
-              fontSize: '12px',
-              marginBottom: '6px',
-              display: 'block'
-            }}>
-              Water Color
-            </label>
-            <input 
-              type="color" 
-              value={waterColor}
-              onChange={(e) => setWaterColor(e.target.value)}
-              style={{
-                width: '40px',
-                height: '40px',
-                border: '2px solid rgba(100, 181, 246, 0.3)',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                background: 'linear-gradient(45deg, #64b5f6, #42a5f5)'
-              }}
-            />
-          </div>
+
         </div>
 
         {/* Environment Section */}
