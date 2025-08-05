@@ -5,26 +5,116 @@ import { useFrame } from '@react-three/fiber'
 import { Mesh } from 'three'
 import * as THREE from 'three'
 
-// Separate component for animated water
-const AnimatedWater = () => {
-  const waterRef = useRef<Mesh>(null)
+// Aquarium filter component with bubbles and current
+const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDensity: number, currentStrength: number, tankSize: number }) => {
+  const filterRef = useRef<THREE.Group>(null)
+  const bubbleRefs = useRef<THREE.Mesh[]>([])
+  
+  // Generate bubbles based on density
+  const bubbleCount = Math.floor(bubbleDensity / 10) + 1
+  const bubbles = useMemo(() => {
+    const bubbleArray = []
+    for (let i = 0; i < bubbleCount; i++) {
+      bubbleArray.push({
+        id: i,
+        x: (Math.random() - 0.5) * 0.3,
+        y: Math.random() * 0.5,
+        z: (Math.random() - 0.5) * 0.3,
+        speed: 0.02 + Math.random() * 0.03,
+        size: 0.02 + Math.random() * 0.03,
+        wobble: Math.random() * Math.PI * 2
+      })
+    }
+    return bubbleArray
+  }, [bubbleCount])
 
   useFrame((state) => {
-    if (waterRef.current) {
-      // Animated water surface with gentle waves
-      const time = state.clock.elapsedTime
-      waterRef.current.position.y = 3 + Math.sin(time * 0.5) * 0.05
-      waterRef.current.rotation.x = -Math.PI / 2 + Math.sin(time * 0.3) * 0.02
-    }
+    const time = state.clock.elapsedTime
+    
+    // Animate bubbles
+    bubbles.forEach((bubble, index) => {
+      const bubbleMesh = bubbleRefs.current[index]
+      if (bubbleMesh) {
+        // Bubble rises with wobble
+        bubbleMesh.position.y += bubble.speed * (bubbleDensity / 50)
+        bubbleMesh.position.x += Math.sin(time * 2 + bubble.wobble) * 0.01
+        bubbleMesh.position.z += Math.cos(time * 1.5 + bubble.wobble) * 0.01
+        
+        // Reset bubble when it reaches top
+        if (bubbleMesh.position.y > tankSize * 0.3) {
+          bubbleMesh.position.y = -tankSize * 0.2
+          bubbleMesh.position.x = (Math.random() - 0.5) * 0.3
+          bubbleMesh.position.z = (Math.random() - 0.5) * 0.3
+        }
+      }
+    })
   })
 
   return (
-    <mesh ref={waterRef} position={[0, 3, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[7, 3, 32, 32]} />
+    <group ref={filterRef} position={[-tankSize * 0.45, 0, 0]}>
+      {/* Filter housing (main body) */}
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[0.3, tankSize * 0.5, 0.2]} />
+        <meshStandardMaterial color="#2c3e50" metalness={0.8} roughness={0.2} />
+      </mesh>
+      
+      {/* Filter intake tube */}
+      <mesh position={[0, -tankSize * 0.2, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.4, 8]} />
+        <meshStandardMaterial color="#34495e" metalness={0.9} roughness={0.1} />
+      </mesh>
+      
+      {/* Filter outlet (bubble generator) */}
+      <mesh position={[0.15, -tankSize * 0.15, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.3, 6]} />
+        <meshStandardMaterial color="#7f8c8d" metalness={0.7} roughness={0.3} />
+      </mesh>
+      
+      {/* Bubble diffuser plate */}
+      <mesh position={[0.2, -tankSize * 0.15, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.02, 8]} />
+        <meshStandardMaterial color="#95a5a6" metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Filter mounting bracket */}
+      <mesh position={[0, 0, 0.15]}>
+        <boxGeometry args={[0.1, tankSize * 0.6, 0.05]} />
+        <meshStandardMaterial color="#34495e" metalness={0.8} roughness={0.2} />
+      </mesh>
+      
+      {/* Generate bubbles */}
+      {bubbles.map((bubble, index) => (
+        <mesh
+          key={bubble.id}
+          ref={(el) => {
+            if (el) bubbleRefs.current[index] = el
+          }}
+          position={[0.25 + bubble.x, -tankSize * 0.15 + bubble.y, bubble.z]}
+        >
+          <sphereGeometry args={[bubble.size, 6, 6]} />
+          <meshPhysicalMaterial 
+            color="#ffffff"
+            transparent
+            opacity={0.6}
+            metalness={0.1}
+            roughness={0.2}
+            ior={1.33}
+          />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// Water volume component (colored water inside tank)
+const WaterVolume = ({ tankSize }: { tankSize: number }) => {
+  return (
+    <mesh position={[0, 0, 0]}>
+      <boxGeometry args={[tankSize * 0.9, tankSize * 0.6, tankSize * 0.4]} />
       <meshPhysicalMaterial 
         color="#4A90E2"
         transparent
-        opacity={0.4}
+        opacity={0.3}
         metalness={0.1}
         roughness={0.2}
         ior={1.33}
@@ -46,7 +136,7 @@ const PlacedObject = ({ position, color }: { position: [number, number, number],
 
 
 // Component for fish school
-const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, tankSize }: { schoolSize: number, swimmingSpeed: number, fishSize: number, randomizeFishSizes: boolean, tankSize: number }) => {
+const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, tankSize, currentStrength }: { schoolSize: number, swimmingSpeed: number, fishSize: number, randomizeFishSizes: boolean, tankSize: number, currentStrength: number }) => {
   const fishRefs = useRef<THREE.Group[]>([])
   
   // Calculate tank bounds based on tank size
@@ -135,10 +225,14 @@ const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, t
         fish.direction += fishGroup.position.z > 0 ? avoidForce * 0.02 : -avoidForce * 0.02
       }
       
-      // Smooth, consistent forward movement
-      const baseSpeed = fish.speed * swimmingSpeed * 0.4
-      const forwardX = Math.cos(fish.direction) * baseSpeed
-      const forwardZ = Math.sin(fish.direction) * baseSpeed
+             // Smooth, consistent forward movement with current effect
+       const baseSpeed = fish.speed * swimmingSpeed * 0.4
+       const forwardX = Math.cos(fish.direction) * baseSpeed
+       const forwardZ = Math.sin(fish.direction) * baseSpeed
+       
+       // Add current effect from filter (pushes fish to the right)
+       const currentEffect = currentStrength / 1000 // Convert to small force
+       const currentX = currentEffect * 0.5
       
       // Natural up-down swimming motion (gentle sine wave)
       const verticalWave = Math.sin(adjustedTime * 1.5) * 0.008
@@ -148,10 +242,10 @@ const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, t
       const sideX = Math.cos(fish.direction + Math.PI/2) * sideWave
       const sideZ = Math.sin(fish.direction + Math.PI/2) * sideWave
       
-      // Apply smooth movement directly to fish group
-      fishGroup.position.x += forwardX + sideX
-      fishGroup.position.y += verticalWave
-      fishGroup.position.z += forwardZ + sideZ
+             // Apply smooth movement directly to fish group with current effect
+       fishGroup.position.x += forwardX + sideX + currentX
+       fishGroup.position.y += verticalWave
+       fishGroup.position.z += forwardZ + sideZ
       
       // Set fish orientation
       fishGroup.rotation.y = fish.direction
@@ -840,8 +934,11 @@ function App() {
             />
           </mesh>
           
-          {/* Animated Water Surface */}
-          <AnimatedWater />
+                     {/* Water Volume (colored water inside tank) */}
+           <WaterVolume tankSize={tankSize} />
+           
+           {/* Aquarium Filter with Bubbles */}
+           <AquariumFilter bubbleDensity={bubbleDensity} currentStrength={currentStrength} tankSize={tankSize} />
           
           {/* Seafloor */}
           <mesh position={[0, -tankSize * 0.29, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -861,8 +958,8 @@ function App() {
             />
           ))}
           
-                     {/* Fish School */}
-           <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} fishSize={fishSize} randomizeFishSizes={randomizeFishSizes} tankSize={tankSize} />
+                                 {/* Fish School */}
+            <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} fishSize={fishSize} randomizeFishSizes={randomizeFishSizes} tankSize={tankSize} currentStrength={currentStrength} />
           
           <OrbitControls />
         </Canvas>
