@@ -1,8 +1,9 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Sky } from '@react-three/drei'
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Mesh } from 'three'
+import * as THREE from 'three'
 
 // Separate component for animated water
 const AnimatedWater = () => {
@@ -42,6 +43,282 @@ const PlacedObject = ({ position, color }: { position: [number, number, number],
   )
 }
 
+// Component for individual fish made from primitives
+const Fish = ({ position, direction, color }: { 
+  position: [number, number, number], 
+  direction: number,
+  color: string 
+}) => {
+  const groupRef = useRef<THREE.Group>(null)
+  
+  useFrame((state) => {
+    if (groupRef.current) {
+      // Gentle swimming tail animation
+      const time = state.clock.elapsedTime
+      const tailWag = Math.sin(time * 8) * 0.15
+      
+      // Find tail fin and animate it
+      const tailFin = groupRef.current.children[2] // tail fin is the 3rd child
+      if (tailFin) {
+        tailFin.rotation.y = tailWag
+      }
+      
+      // Slight body movement
+      groupRef.current.rotation.z = Math.sin(time * 3) * 0.02
+    }
+  })
+  
+  return (
+    <group ref={groupRef} position={position} rotation={[0, direction, 0]}>
+      {/* Fish Body (main ellipsoid) */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[0.08, 8, 6]} />
+        <meshStandardMaterial color={color} />
+        <meshStandardMaterial attach="material" args={[{ color: color, metalness: 0.1, roughness: 0.8 }]} />
+      </mesh>
+      
+      {/* Fish Head (smaller ellipsoid) */}
+      <mesh position={[0.06, 0, 0]} scale={[0.7, 0.8, 0.8]}>
+        <sphereGeometry args={[0.05, 6, 6]} />
+        <meshStandardMaterial color={color} metalness={0.2} roughness={0.6} />
+      </mesh>
+      
+      {/* Tail Fin */}
+      <mesh position={[-0.09, 0, 0]} rotation={[0, 0, 0]}>
+        <coneGeometry args={[0.04, 0.08, 3]} />
+        <meshStandardMaterial color={color} transparent opacity={0.8} />
+      </mesh>
+      
+      {/* Top Dorsal Fin */}
+      <mesh position={[-0.02, 0.06, 0]} rotation={[Math.PI/2, 0, 0]} scale={[0.8, 0.6, 0.4]}>
+        <coneGeometry args={[0.025, 0.05, 3]} />
+        <meshStandardMaterial color={color} transparent opacity={0.7} />
+      </mesh>
+      
+      {/* Side Fins (Pectoral) */}
+      <mesh position={[0.02, -0.02, 0.05]} rotation={[0, Math.PI/4, Math.PI/3]} scale={[0.6, 0.4, 0.3]}>
+        <coneGeometry args={[0.02, 0.04, 3]} />
+        <meshStandardMaterial color={color} transparent opacity={0.6} />
+      </mesh>
+      <mesh position={[0.02, -0.02, -0.05]} rotation={[0, -Math.PI/4, -Math.PI/3]} scale={[0.6, 0.4, 0.3]}>
+        <coneGeometry args={[0.02, 0.04, 3]} />
+        <meshStandardMaterial color={color} transparent opacity={0.6} />
+      </mesh>
+      
+      {/* Bottom Fin (Anal) */}
+      <mesh position={[-0.01, -0.05, 0]} rotation={[-Math.PI/2, 0, 0]} scale={[0.6, 0.4, 0.3]}>
+        <coneGeometry args={[0.015, 0.03, 3]} />
+        <meshStandardMaterial color={color} transparent opacity={0.6} />
+      </mesh>
+      
+      {/* Eyes */}
+      <mesh position={[0.08, 0.02, 0.025]}>
+        <sphereGeometry args={[0.008, 4, 4]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+      <mesh position={[0.08, 0.02, -0.025]}>
+        <sphereGeometry args={[0.008, 4, 4]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+    </group>
+  )
+}
+
+// Component for fish school
+const FishSchool = ({ schoolSize, swimmingSpeed, tankSize }: { schoolSize: number, swimmingSpeed: number, tankSize: number }) => {
+  const fishRefs = useRef<THREE.Group[]>([])
+  
+  // Calculate tank bounds based on tank size
+  const tankBounds = {
+    x: tankSize * 0.5,
+    y: tankSize * 0.33,
+    z: tankSize * 0.25
+  }
+  
+  // Generate fish data with persistent references
+  const fishData = useMemo(() => {
+    const fish = []
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F']
+    
+    for (let i = 0; i < schoolSize; i++) {
+      fish.push({
+        id: i,
+        // Enhanced swimming parameters for better movement
+        timeOffset: Math.random() * Math.PI * 2,
+        amplitude: 0.8 + Math.random() * 0.8,
+        frequency: 0.3 + Math.random() * 0.4,
+        direction: Math.random() * Math.PI * 2,
+        speed: 0.02 + Math.random() * 0.03,
+        // New parameters for better exploration
+        targetX: (Math.random() - 0.5) * tankBounds.x * 1.2,
+        targetY: (Math.random() - 0.5) * tankBounds.y * 1.2 + 0.5,
+        targetZ: (Math.random() - 0.5) * tankBounds.z * 1.2,
+        targetTime: 0,
+        color: colors[i % colors.length]
+      })
+    }
+    return fish
+  }, [schoolSize, tankSize])
+  
+  useFrame((state) => {
+    const time = state.clock.elapsedTime
+    
+    fishData.forEach((fish, index) => {
+      const fishGroup = fishRefs.current[index]
+      if (!fishGroup) return
+      
+      // Smooth, natural fish movement
+      const adjustedTime = time * swimmingSpeed * 0.1 + fish.timeOffset
+      
+      // Update target less frequently for smoother paths
+      fish.targetTime += 0.016
+      if (fish.targetTime > 8 + Math.random() * 4) { // Change target every 8-12 seconds
+        fish.targetX = (Math.random() - 0.5) * tankBounds.x * 0.8
+        fish.targetY = (Math.random() - 0.5) * tankBounds.y * 0.8 + 0.5
+        fish.targetZ = (Math.random() - 0.5) * tankBounds.z * 0.8
+        fish.targetTime = 0
+      }
+      
+      // Calculate smooth direction towards target
+      const dx = fish.targetX - fishGroup.position.x
+      const dz = fish.targetZ - fishGroup.position.z
+      const targetDirection = Math.atan2(dz, dx)
+      
+      // Smooth direction interpolation (no sudden turns)
+      let directionDiff = targetDirection - fish.direction
+      // Handle angle wrapping
+      if (directionDiff > Math.PI) directionDiff -= Math.PI * 2
+      if (directionDiff < -Math.PI) directionDiff += Math.PI * 2
+      
+      // Very gradual direction change for smooth swimming
+      fish.direction += directionDiff * 0.02
+      
+      // Natural wave-like body movement
+      const bodyWave = Math.sin(adjustedTime * 3) * 0.08
+      fish.direction += bodyWave
+      
+      // Smooth boundary avoidance
+      const margin = 1.5
+      if (Math.abs(fishGroup.position.x) > tankBounds.x - margin) {
+        const avoidForce = (Math.abs(fishGroup.position.x) - (tankBounds.x - margin)) / margin
+        fish.direction += fishGroup.position.x > 0 ? avoidForce * 0.02 : -avoidForce * 0.02
+      }
+      if (Math.abs(fishGroup.position.y) > tankBounds.y - margin) {
+        const avoidForce = (Math.abs(fishGroup.position.y) - (tankBounds.y - margin)) / margin
+        fish.direction += fishGroup.position.y > 0 ? avoidForce * 0.01 : -avoidForce * 0.01
+      }
+      if (Math.abs(fishGroup.position.z) > tankBounds.z - margin) {
+        const avoidForce = (Math.abs(fishGroup.position.z) - (tankBounds.z - margin)) / margin
+        fish.direction += fishGroup.position.z > 0 ? avoidForce * 0.02 : -avoidForce * 0.02
+      }
+      
+      // Smooth, consistent forward movement
+      const baseSpeed = fish.speed * swimmingSpeed * 0.4
+      const forwardX = Math.cos(fish.direction) * baseSpeed
+      const forwardZ = Math.sin(fish.direction) * baseSpeed
+      
+      // Natural up-down swimming motion (gentle sine wave)
+      const verticalWave = Math.sin(adjustedTime * 1.5) * 0.008
+      
+      // Side-to-side swimming motion (fish body undulation)
+      const sideWave = Math.sin(adjustedTime * 2.5) * 0.005
+      const sideX = Math.cos(fish.direction + Math.PI/2) * sideWave
+      const sideZ = Math.sin(fish.direction + Math.PI/2) * sideWave
+      
+      // Apply smooth movement directly to fish group
+      fishGroup.position.x += forwardX + sideX
+      fishGroup.position.y += verticalWave
+      fishGroup.position.z += forwardZ + sideZ
+      
+      // Set fish orientation
+      fishGroup.rotation.y = fish.direction
+      
+      // Gentle boundary enforcement
+      fishGroup.position.x = Math.max(-tankBounds.x * 0.9, Math.min(tankBounds.x * 0.9, fishGroup.position.x))
+      fishGroup.position.y = Math.max(-tankBounds.y * 0.9, Math.min(tankBounds.y * 0.9, fishGroup.position.y))
+      fishGroup.position.z = Math.max(-tankBounds.z * 0.9, Math.min(tankBounds.z * 0.9, fishGroup.position.z))
+      
+      // Natural swimming body roll
+      fishGroup.rotation.z = Math.sin(adjustedTime * 2) * 0.03
+      fishGroup.rotation.x = Math.sin(adjustedTime * 1.8) * 0.02
+    })
+  })
+  
+  return (
+    <>
+      {fishData.map((fish, index) => (
+        <group
+          key={fish.id}
+          ref={(el) => {
+            if (el) {
+              fishRefs.current[index] = el
+              // Set initial position only once
+              if (el.position.x === 0 && el.position.y === 0 && el.position.z === 0) {
+                el.position.set(
+                  (Math.random() - 0.5) * tankBounds.x * 1.6,
+                  (Math.random() - 0.5) * tankBounds.y * 1.6 + 0.5,
+                  (Math.random() - 0.5) * tankBounds.z * 1.6
+                )
+              }
+            }
+          }}
+          rotation={[0, fish.direction, 0]}
+        >
+          {/* Fish Body (main ellipsoid) */}
+          <mesh position={[0, 0, 0]}>
+            <sphereGeometry args={[0.08, 8, 6]} />
+            <meshStandardMaterial color={fish.color} metalness={0.1} roughness={0.8} />
+          </mesh>
+          
+          {/* Fish Head (smaller ellipsoid) */}
+          <mesh position={[0.06, 0, 0]} scale={[0.7, 0.8, 0.8]}>
+            <sphereGeometry args={[0.05, 6, 6]} />
+            <meshStandardMaterial color={fish.color} metalness={0.2} roughness={0.6} />
+          </mesh>
+          
+          {/* Tail Fin */}
+          <mesh position={[-0.09, 0, 0]} rotation={[0, 0, 0]}>
+            <coneGeometry args={[0.04, 0.08, 3]} />
+            <meshStandardMaterial color={fish.color} transparent opacity={0.8} />
+          </mesh>
+          
+          {/* Top Dorsal Fin */}
+          <mesh position={[-0.02, 0.06, 0]} rotation={[Math.PI/2, 0, 0]} scale={[0.8, 0.6, 0.4]}>
+            <coneGeometry args={[0.025, 0.05, 3]} />
+            <meshStandardMaterial color={fish.color} transparent opacity={0.7} />
+          </mesh>
+          
+          {/* Side Fins (Pectoral) */}
+          <mesh position={[0.02, -0.02, 0.05]} rotation={[0, Math.PI/4, Math.PI/3]} scale={[0.6, 0.4, 0.3]}>
+            <coneGeometry args={[0.02, 0.04, 3]} />
+            <meshStandardMaterial color={fish.color} transparent opacity={0.6} />
+          </mesh>
+          <mesh position={[0.02, -0.02, -0.05]} rotation={[0, -Math.PI/4, -Math.PI/3]} scale={[0.6, 0.4, 0.3]}>
+            <coneGeometry args={[0.02, 0.04, 3]} />
+            <meshStandardMaterial color={fish.color} transparent opacity={0.6} />
+          </mesh>
+          
+          {/* Bottom Fin (Anal) */}
+          <mesh position={[-0.01, -0.05, 0]} rotation={[-Math.PI/2, 0, 0]} scale={[0.6, 0.4, 0.3]}>
+            <coneGeometry args={[0.015, 0.03, 3]} />
+            <meshStandardMaterial color={fish.color} transparent opacity={0.6} />
+          </mesh>
+          
+          {/* Eyes */}
+          <mesh position={[0.08, 0.02, 0.025]}>
+            <sphereGeometry args={[0.008, 4, 4]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+          <mesh position={[0.08, 0.02, -0.025]}>
+            <sphereGeometry args={[0.008, 4, 4]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        </group>
+      ))}
+    </>
+  )
+}
+
 function App() {
   const [placedObjects, setPlacedObjects] = useState<Array<{ id: number, position: [number, number, number], color: string }>>([])
   const [objectCounter, setObjectCounter] = useState(0)
@@ -53,6 +330,7 @@ function App() {
   const [currentStrength, setCurrentStrength] = useState(30)
   const [schoolSize, setSchoolSize] = useState(15)
   const [swimmingSpeed, setSwimmingSpeed] = useState(5)
+  const [tankSize, setTankSize] = useState(12)
   const [fps, setFps] = useState(60)
 
   const handlePlaceObject = () => {
@@ -82,7 +360,8 @@ function App() {
         bubbleDensity,
         currentStrength,
         schoolSize,
-        swimmingSpeed
+        swimmingSpeed,
+        tankSize
       }
     }
     localStorage.setItem('aquaforge-save', JSON.stringify(aquariumData))
@@ -103,6 +382,7 @@ function App() {
         setCurrentStrength(data.settings.currentStrength || 30)
         setSchoolSize(data.settings.schoolSize || 15)
         setSwimmingSpeed(data.settings.swimmingSpeed || 5)
+        setTankSize(data.settings.tankSize || 12)
       }
       console.log('Aquarium loaded!')
     }
@@ -118,6 +398,7 @@ function App() {
     setCurrentStrength(30)
     setSchoolSize(15)
     setSwimmingSpeed(5)
+    setTankSize(12)
     console.log('Aquarium reset!')
   }
 
@@ -513,6 +794,45 @@ function App() {
             />
           </div>
         </div>
+
+        {/* Tank Section */}
+        <div style={{ marginBottom: '25px' }}>
+          <div style={{
+            color: '#ffa726',
+            fontSize: '14px',
+            fontWeight: '600',
+            marginBottom: '12px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            🏠 Tank
+          </div>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{
+              color: '#b0bec5',
+              fontSize: '12px',
+              marginBottom: '6px',
+              display: 'block'
+            }}>
+              Tank Size
+            </label>
+            <input 
+              type="range" 
+              min="8" 
+              max="20" 
+              value={tankSize}
+              onChange={(e) => setTankSize(Number(e.target.value))}
+              style={{
+                width: '100%',
+                height: '6px',
+                background: `linear-gradient(to right, #64b5f6 0%, #64b5f6 ${(tankSize - 8) / 12 * 100}%, rgba(45, 64, 89, 0.5) ${(tankSize - 8) / 12 * 100}%, rgba(45, 64, 89, 0.5) 100%)`,
+                borderRadius: '3px',
+                outline: 'none',
+                WebkitAppearance: 'none'
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* 3D Canvas Area */}
@@ -545,7 +865,7 @@ function App() {
           
           {/* Glass Aquarium Container */}
           <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[8, 6, 4]} />
+            <boxGeometry args={[tankSize, tankSize * 0.67, tankSize * 0.5]} />
             <meshPhysicalMaterial 
               color="#ffffff"
               transparent
@@ -562,8 +882,8 @@ function App() {
           <AnimatedWater />
           
           {/* Seafloor */}
-          <mesh position={[0, -2.5, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[7, 3]} />
+          <mesh position={[0, -tankSize * 0.29, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[tankSize * 0.83, tankSize * 0.42]} />
             <meshStandardMaterial 
               color="#D2B48C"
               roughness={0.8}
@@ -578,6 +898,9 @@ function App() {
               color={obj.color}
             />
           ))}
+          
+          {/* Fish School */}
+          <FishSchool schoolSize={schoolSize} swimmingSpeed={swimmingSpeed} tankSize={tankSize} />
           
           <OrbitControls />
         </Canvas>
@@ -602,8 +925,8 @@ function App() {
           🪨 Objects: <span style={{ color: '#64b5f6', fontWeight: '600' }}>{placedObjects.length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b0bec5', fontSize: '12px' }}>
-          🐠 Fish: <span style={{ color: '#64b5f6', fontWeight: '600' }}>8</span>
-        </div>
+           🐠 Fish: <span style={{ color: '#64b5f6', fontWeight: '600' }}>{schoolSize}</span>
+         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b0bec5', fontSize: '12px' }}>
           ⚡ FPS: <span style={{ color: '#64b5f6', fontWeight: '600' }}>{fps}</span>
         </div>
