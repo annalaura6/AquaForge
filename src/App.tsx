@@ -9,19 +9,25 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
   const filterRef = useRef<THREE.Group>(null)
   const bubbleRefs = useRef<THREE.Mesh[]>([])
   
-  // Generate bubbles based on density - much more bubbles
-  const bubbleCount = Math.floor(bubbleDensity / 3) + 5
+  // Generate bubbles based on density - many and widely spread
+  const bubbleCount = Math.floor(bubbleDensity * 12) + 80
   const bubbles = useMemo(() => {
     const bubbleArray = []
     for (let i = 0; i < bubbleCount; i++) {
       bubbleArray.push({
         id: i,
-        x: (Math.random() - 0.5) * 0.3,
-        y: Math.random() * 0.5,
-        z: (Math.random() - 0.5) * 0.3,
-        speed: 0.02 + Math.random() * 0.03,
-        size: 0.02 + Math.random() * 0.03,
-        wobble: Math.random() * Math.PI * 2
+        // Spawn offsets around outlet (local to the filter group)
+        spawnX: (Math.random() - 0.5) * 1.5,
+        spawnY: Math.random() * 1.2,
+        spawnZ: (Math.random() - 0.5) * 1.0,
+        // Motion parameters
+        speed: 0.006 + Math.random() * 0.010,
+        size: 0.012 + Math.random() * 0.020,
+        wobble: Math.random() * Math.PI * 2,
+        // Per-bubble curve state
+        t: Math.random() * 0.5, // staggered progress so stream looks continuous
+        reachFactor: 0.6 + Math.random() * 0.8, // each bubble travels a bit different max distance
+        driftZ: (Math.random() - 0.5) * 0.02 // slow sideways drift so they fan out
       })
     }
     return bubbleArray
@@ -30,44 +36,65 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
   useFrame((state) => {
     const time = state.clock.elapsedTime
     
+    // Water volume (local to filter group's x)
+    const minXLocal = 0
+    const maxXLocal = tankSize * 0.9
+    const minY = -tankSize * 0.3
+    const maxY = tankSize * 0.3
+    const minZ = -tankSize * 0.25
+    const maxZ = tankSize * 0.25
+
     // Animate bubbles
     bubbles.forEach((bubble, index) => {
       const bubbleMesh = bubbleRefs.current[index]
-      if (bubbleMesh) {
-        // Calculate smooth curve parameters based on current strength
-        const maxDistance = (currentStrength / 100) * tankSize * 0.9 // Full tank length
-        const progress = bubbleMesh.position.x / maxDistance // How far along the curve (0 to 1)
-        
-        // Smooth curve using sine function for natural arc
-        const curveAngle = progress * Math.PI // 0 to π radians
-        
-        // Calculate smooth movement along the curve
-        const forwardSpeed = bubble.speed * (bubbleDensity / 30) * 4 // Faster movement
-        const upwardSpeed = bubble.speed * (bubbleDensity / 30) * 2
-        
-        // Smooth curve movement (no sharp turns)
-        if (progress < 1) {
-          // Move along the curve smoothly
-          bubbleMesh.position.x += forwardSpeed
-          bubbleMesh.position.y += Math.sin(curveAngle) * upwardSpeed * 2
-          
-          // Add gentle spread to the sides
-          bubbleMesh.position.z += Math.sin(time * 1.5 + bubble.wobble) * 0.01
-        } else {
-          // After the curve, rise vertically
-          bubbleMesh.position.y += upwardSpeed
-        }
-        
-        // Add gentle wobble
-        bubbleMesh.position.x += Math.sin(time * 2 + bubble.wobble) * 0.005
-        bubbleMesh.position.z += Math.cos(time * 1.5 + bubble.wobble) * 0.005
-        
-        // Reset bubble when it reaches top or goes too far
-        if (bubbleMesh.position.y > tankSize * 0.4 || bubbleMesh.position.x > tankSize * 0.95) {
-          bubbleMesh.position.y = -tankSize * 0.2
-          bubbleMesh.position.x = 0.25 + (Math.random() - 0.5) * 0.3
-          bubbleMesh.position.z = (Math.random() - 0.5) * 0.3
-        }
+      if (!bubbleMesh) return
+
+      // Base spawn around the outlet (local to filter group)
+      const outletLocalX = 0.25
+      const baseX = outletLocalX + bubble.spawnX
+      const baseY = -tankSize * 0.15 + bubble.spawnY
+      const baseZ = bubble.spawnZ
+
+      // Per-bubble max horizontal reach based on current strength
+      const maxReach = (currentStrength / 100) * tankSize * 0.9 * bubble.reachFactor
+
+      // Exponential ease-out for horizontal drift (never a hard turn)
+      bubble.t += bubble.speed * 0.5
+      const horizontalOffset = maxReach * (1 - Math.exp(-1.1 * bubble.t))
+
+      // Apply absolute x based on eased horizontal curve
+      bubbleMesh.position.x = baseX + horizontalOffset
+
+      // Gentle, continuous rise
+      const upwardStep = bubble.speed * 0.35
+      bubbleMesh.position.y = (Number.isFinite(bubbleMesh.position.y) ? bubbleMesh.position.y : baseY) + upwardStep
+
+      // Natural fan-out to all sides
+      bubbleMesh.position.z = (Number.isFinite(bubbleMesh.position.z) ? bubbleMesh.position.z : baseZ)
+      bubbleMesh.position.z += Math.sin(time * 0.7 + bubble.wobble) * 0.004 + bubble.driftZ
+
+      // Keep bubbles inside water volume (local clamp)
+      bubbleMesh.position.x = Math.min(Math.max(bubbleMesh.position.x, minXLocal), maxXLocal)
+      bubbleMesh.position.y = Math.min(Math.max(bubbleMesh.position.y, minY), maxY)
+      bubbleMesh.position.z = Math.min(Math.max(bubbleMesh.position.z, minZ), maxZ)
+
+      // Reset when reaching top or when horizontal drift has essentially finished
+      const reachedTop = bubbleMesh.position.y >= maxY * 0.95
+      const finishedDrift = horizontalOffset >= maxReach * 0.98
+      if (reachedTop || finishedDrift) {
+        // Re-seed bubble with new randoms
+        bubble.t = Math.random() * 0.2
+        bubble.spawnX = (Math.random() - 0.5) * 1.5
+        bubble.spawnY = Math.random() * 1.2
+        bubble.spawnZ = (Math.random() - 0.5) * 1.0
+        bubble.reachFactor = 0.6 + Math.random() * 0.8
+        bubble.driftZ = (Math.random() - 0.5) * 0.02
+
+        bubbleMesh.position.set(
+          outletLocalX + bubble.spawnX,
+          -tankSize * 0.15 + bubble.spawnY,
+          bubble.spawnZ
+        )
       }
     })
   })
@@ -111,7 +138,7 @@ const AquariumFilter = ({ bubbleDensity, currentStrength, tankSize }: { bubbleDe
           ref={(el) => {
             if (el) bubbleRefs.current[index] = el
           }}
-          position={[0.25 + bubble.x, -tankSize * 0.15 + bubble.y, bubble.z]}
+          position={[0.25 + bubble.spawnX, -tankSize * 0.15 + bubble.spawnY, bubble.spawnZ]}
         >
           <sphereGeometry args={[bubble.size, 6, 6]} />
           <meshPhysicalMaterial 
@@ -247,8 +274,8 @@ const FishSchool = ({ schoolSize, swimmingSpeed, fishSize, randomizeFishSizes, t
         fish.direction += fishGroup.position.z > 0 ? avoidForce * 0.02 : -avoidForce * 0.02
       }
       
-             // Smooth, consistent forward movement (no current effect)
-       const baseSpeed = fish.speed * swimmingSpeed * 0.4
+      // Smooth, consistent forward movement (reduced by half)
+       const baseSpeed = fish.speed * swimmingSpeed * 0.1
        const forwardX = Math.cos(fish.direction) * baseSpeed
        const forwardZ = Math.sin(fish.direction) * baseSpeed
       
